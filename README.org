@@ -1,0 +1,117 @@
+* About
+Emacs already has more workspace management packages than I can count. In the past, I exclusively used workgroups2 because none of the other packages had all (or sometimes any) of the functionality I consider important:
+- Named, not (just) numbered, workspaces; each represents some context (e.g. book notes, programming project, etc.)
+- A hook run when switching workspaces, so that context specific keybindings/settings can be applied
+- Workspace-local window layout history/undo (~wg-undo-wconfig-change~ is workgroups2's equivalent of ~winner-undo~)
+- No limit to the number of workspaces
+- Persistence (doesn't need to be builtin; desktop.el is fine)
+
+While workgroups2 has all of the above functionality, it has serious issues as well:
+- It is unmaintained and cannot save layouts on the latest Emacs
+- Extra configuration is necessary to fix some annoyances:
+  - Golden ratio/zoom must be temporarily disabled when switching workgroups to prevent "window too small for splitting" errors when switching to a workgroup with more than two or three windows (this is also an issue for the alternative packages I've tried)
+  - Window resizing (e.g. as done by golden ratio/zoom) is recorded by default
+
+Workgroups2 is a fairly large package, and I don't want to attempt to maintain/fix it when I only need some of its functionality. The goal of this package is to be as simple as alternatives while also allowing for the useful functionality they lack. The main principle is to use multiple frames as workspaces instead switching between window layouts inside a single frame. This has several advantages:
+- =winner-mode= keeps track of window configuration changes separately for each frame
+- =desktop.el= can be used to persist and restore all frames
+- The user can change keybindings based on the frame's =fg-name= property (e.g. by using =fg-after-switch-hook=) and make use of frame-local variables
+- No "window too small for splitting" issues
+
+The primary issue with using frames for workgroups-like functionality is that emacs has no way of displaying only one frame at a time and hiding the others. This isn't an issue if you are willing to dedicate different desktops to different frames. On the other hand, frames aren't great if you want a lot of contexts/groups or would prefer to use keys bound in emacs for switching between them as opposed to always using global hotkeys (since ~select-frame-set-input-focus~ does not work across desktops). By default, this package addresses this issue by hiding the old frame when switching to a new one. That means that (when =fg-hide-on-switch= is non-nil) this package only supports Linux/X11. Furthermore, switching between frames can cause flicker especially if you are not using a compositor.
+
+Because this method is not cross platform and kind of a hack, I will likely abandon this package if an alternative is ever created with workspace-local window history.
+
+* Requirements
+This package requires =xdotool= to hide the old frame when switching to a new one. If [[https://github.com/ch11ng/xelb][xelb]] is able to easily map/unmap windows, I may switch to using it in the future.
+
+* Terminology
+The following sections use the term "framegroup" to refer to a frame that this package is managing (i.e. it was named/focused using this package's commands).
+
+* Settings/Hooks
+- =fg-hide-on-switch= (default t): whether to hide the old frame when switching to a new one
+- =fg-auto-create= (default t): whether to automatically create a framegroup when attempting to switch to a non-existent one
+- =fg-create-hook=: hook run when a framegroup is first created (renaming also triggers this hook)
+- =fg-after-switch-hook=: hook run after switching framegroups; functions are run with the name of the new framegroup as an argument
+
+* Provided Functions/Macros
+Commands:
+- ~fg-rename-frame~: set the name of the current framegroup
+- ~fg-create-frame~: choose a name and create a new framegroup
+- ~fg-switch-to-frame~: switch to another framegroup
+- ~fg-switch-to-last-frame~: switch to the previously focused framegroup
+
+Helper functions/macros:
+- ~fg-switch~: a convenience macro that returns a function that will switch to a framegroup (e.g. ~(define-key "key" (fg-switch "notes"))~)
+- ~fg-desktop-setup~: will add to =desktop-read-hook= to hide all but the last focused frame when restoring a session
+- ~fg-mode-line-string~: return the current framegroup name formatted for the mode line
+
+
+This package does not provide numbered workspaces or directional switching commands as I personally prefer to have named contexts. You could of course simply name your frames with numbers and create directional switching keybindings yourself with ~fg-switch~, but I do not plan to this functionality directly.
+
+* Example Configuration
+#+begin_src emacs-lisp
+;; enable `winner-mode' for undo
+(winner-mode)
+(global-set-key "C-c l" 'winner-undo)
+(global-set-key "C-c L" 'winner-redo)
+
+;; enable `desktop-save-mode' for persistence
+;; NOTE: It seems Emacs occasionally hangs when restoring a lot of frames with
+;; desktop.el
+(fg-desktop-setup)
+(desktop-save-mode)
+
+;; binding keys to switch to specific framegroups
+(global-set-key "C-c e" (fg-switch "emacs"))
+(global-set-key "C-c p" (fg-switch "prog"))
+;; ...
+
+;; default layouts for framegroups
+(defun my-framegroup-setup (name &rest _)
+  "Set up default framegroup layouts."
+  (interactive)
+  (pcase name
+    ;; emacs configuration
+    ("emacs"
+     (find-file "~/.emacs.d/other.el")
+     (split-window-right)
+     (find-file "~/.emacs.d/init.el"))
+    ;; programming projects
+    ("prog"
+     (find-file "~/src"))
+    ;; dotfiles
+    ("config"
+     (find-file "~/dotfiles"))
+    ("mail"
+     (mu4e))
+    ("music"
+     (mingus))))
+
+(add-hook 'fg-create-hook #'my-framegroup-setup)
+
+;; binding keys for the current framegroup
+(defmacro my-ff (file)
+  "Wrapper for creating `find-file' commands."
+  `(lambda () (interactive) (find-file ,file)))
+
+(defun my-framegroup-keybindings (name &rest _)
+  (pcase name
+    ("emacs"
+     (global-set-key "C-c , i" (my-ff "~/.emacs.d/init.el")))
+    ("prog"
+     (global-set-key "C-c , r" (my-ff "README.org"))
+     (global-set-key "C-c , d" #'projectile-edit-dir-locals))))
+
+(add-hook 'fg-after-switch-hook #'my-framegroup-keybindings)
+#+end_src
+
+For mode line integration, you can insert ~fg-mode-line-string~ into the mode line:
+#+begin_src emacs-lisp
+(setq-default mode-line-format
+              ;; ...
+              '(:eval (when (fboundp 'fg-mode-line-string)
+                        (fg-mode-line-string)))
+              ;; ...
+              )
+#+end_src
