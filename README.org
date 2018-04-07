@@ -1,16 +1,16 @@
 * Motivation
-Emacs already has more workspace management packages than I can count. In the past, I exclusively used workgroups2 because none of the other packages had all (or sometimes any) of the functionality I consider important:
-- Named, not (just) numbered, workspaces; each represents some context (e.g. book notes, programming project, etc.)
-- A hook run when switching workspaces, so that context specific keybindings/settings can be applied
-- Workspace-local window layout history/undo (~wg-undo-wconfig-change~ is workgroups2's equivalent of ~winner-undo~)
-- No limit to the number of workspaces
-- Persistence (doesn't need to be builtin; desktop.el is fine)
+Emacs already has more workspace management packages than I can count. In the past, I exclusively used workgroups2 because no other package had all of the functionality I consider important. These are the main features supported by this package:
+- Workspace-local/independent window layout history/undo (this is the feature that no package I am aware of besides workgroups2 supports and is the primary reason I created this package)
+- Named, not (just) numbered, workspaces; each represent some context (e.g. book notes, programming project, etc.)
+- Hooks for creating and switching between workspaces to allow default session setup and so that workspace-specific keybindings/settings can be applied
+- No limit to the number of workspaces (elscreen is the main and possibly only offender)
+- Persistence (this is generally not an issue as desktop.el can be used to store sessions)
 
 While workgroups2 has all of the above functionality, it has serious issues as well:
 - It is unmaintained and cannot save layouts on the latest Emacs
 - Extra configuration is necessary to fix some annoyances:
-  - Golden ratio/zoom must be temporarily disabled when switching workgroups to prevent "window too small for splitting" errors when switching to a workgroup with more than two or three windows (this is also an issue for the alternative packages I've tried)
-  - Window resizing (e.g. as done by golden ratio/zoom) is recorded by default
+  - Golden ratio/zoom must be temporarily disabled when switching workgroups to prevent "window too small for splitting" errors when switching to a workgroup with more than two or three windows (this is also an issue for some alternative packages I've tried)
+  - Window resizing (e.g. automatically done by golden ratio/zoom) is recorded by default (moving through window size history is pretty useless, especially if you are using a package like golden ratio; =winner-mode=, on the other hand, doesn't record window resizing)
 
 Workgroups2 is a fairly large package, and I don't want to attempt to maintain/fix it when I only need some of its functionality. The goal of this package is to be as simple as alternatives while also allowing for the useful functionality they lack. The main principle is to use multiple frames as workspaces instead switching between window layouts inside a single frame. This has several advantages:
 - =winner-mode= keeps track of window configuration changes separately for each frame
