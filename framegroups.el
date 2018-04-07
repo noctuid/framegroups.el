@@ -194,9 +194,11 @@ When BACKGROUND is non-nil unmap the newly created frame with xdotool."
                        (fg--wid frame))))))
 
 ;;;###autoload
-(defun fg-desktop-setup ()
+(defun fg-desktop-setup (&optional undo)
   "Unmap all but the last focused frame when restoring session with desktop.el"
-  (add-hook 'desktop-after-read-hook #'fg-unmap-other-frames))
+  (if undo
+      (remove-hook 'desktop-after-read-hook #'fg-unmap-other-frames)
+    (add-hook 'desktop-after-read-hook #'fg-unmap-other-frames)))
 
 (provide 'framegroups)
 ;;; framegroups.el ends here
