@@ -36,8 +36,14 @@
   :group 'convenience
   :prefix 'fg-)
 
-(defcustom fg-hide-on-switch t
+(defcustom fg-hide-with-xdotool t
   "Whether to hide the old frame when switching to a new one.
+This only works on X and requires xdotool to be installed."
+  :group 'framegroups
+  :type 'boolean)
+
+(defcustom fg-switch-with-xdotool t
+  "Whether to use xdotool instead of `select-frame-set-input-focus'.
 This only works on X and requires xdotool to be installed."
   :group 'framegroups
   :type 'boolean)
@@ -77,8 +83,7 @@ When FRAME is nil, return the window id of the current frame."
 When FRAME is nil, return the  name of the current frame."
   (cdr (assq 'fg-name (frame-parameters frame))))
 
-;; used as exists-p
-
+;; used as exists-p as well
 (defun fg--frame-names ()
   "Return all existing framegroup names."
   (delq nil (cl-loop for frame in (frame-list)
@@ -99,9 +104,19 @@ When FRAME is nil, return the  name of the current frame."
     (when (string= (fg--name frame) name)
       (cl-return frame))))
 
-;; * Commands
+(defun fg--use-xdotool-to-hide-p ()
+  "Return whether xdotool should be used to unmap frames."
+  (and fg-hide-with-xdotool
+       (eq window-system 'x)
+       (executable-find "xdotool")))
 
-;; optionally can put somethin in config to bury all but last frame
+(defun fg--use-xdotool-to-switch-p ()
+  "Return whether xdotool should be used to activate/switch frames."
+  (and fg-switch-with-xdotool
+       (eq window-system 'x)
+       (executable-find "xdotool")))
+
+;; * Commands
 ;;;###autoload
 (defun fg-rename-frame (name)
   "Rename the current frame's framegroup name to NAME."
@@ -117,11 +132,12 @@ When BACKGROUND is non-nil unmap the newly created frame with xdotool."
   (when (fg--get-frame name)
     (error "Framegroup %s already exists" name))
   (fg--save-last)
-  (when (and fg-hide-on-switch
+  (when (and (fg--use-xdotool-to-hide-p)
              (not background))
     (start-process "fg-switch" nil "xdotool" "windowunmap" (fg--wid)))
   (let ((frame (make-frame (list (cons 'fg-name name)))))
-    (when background
+    (when (and (fg--use-xdotool-to-hide-p)
+               background)
       (start-process "fg-bg" nil "xdotool" "windowunmap" (fg--wid frame)))
     (with-selected-frame frame
       (run-hook-with-args 'fg-create-hook name))
@@ -141,12 +157,14 @@ When BACKGROUND is non-nil unmap the newly created frame with xdotool."
     (cond
      (frame
       (fg--save-last)
-      (cond (fg-hide-on-switch
+      (cond ((fg--use-xdotool-to-hide-p)
              (start-process "fg-switch" nil "xdotool" "windowunmap" old-wid
                             "windowmap" target-wid "windowactivate" target-wid))
-            (t
+            ((fg--use-xdotool-to-switch-p)
              (start-process "fg-switch" nil "xdotool" "windowmap" target-wid
-                            "windowactivate" target-wid)))
+                            "windowactivate" target-wid))
+            (t
+             (select-frame-set-input-focus frame)))
       (with-selected-frame frame
         (run-hook-with-args 'fg-after-switch-hook (fg--name frame))))
      (t
@@ -187,11 +205,12 @@ When BACKGROUND is non-nil unmap the newly created frame with xdotool."
 ;;;###autoload
 (defun fg-unmap-other-frames ()
   "Unmap all frames besides the selected one."
-  (let ((inhibit-redisplay t))
-    (dolist (frame (frame-list))
-      (unless (eq frame (selected-frame))
-        (start-process "fg-unmap" nil "xdotool" "windowunmap"
-                       (fg--wid frame))))))
+  (when (fg--use-xdotool-to-hide)
+    (let ((inhibit-redisplay t))
+      (dolist (frame (frame-list))
+        (unless (eq frame (selected-frame))
+          (start-process "fg-unmap" nil "xdotool" "windowunmap"
+                         (fg--wid frame)))))))
 
 ;;;###autoload
 (defun fg-desktop-setup (&optional undo)

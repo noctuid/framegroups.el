@@ -1,4 +1,4 @@
-* About
+* Motivation
 Emacs already has more workspace management packages than I can count. In the past, I exclusively used workgroups2 because none of the other packages had all (or sometimes any) of the functionality I consider important:
 - Named, not (just) numbered, workspaces; each represents some context (e.g. book notes, programming project, etc.)
 - A hook run when switching workspaces, so that context specific keybindings/settings can be applied
@@ -18,18 +18,30 @@ Workgroups2 is a fairly large package, and I don't want to attempt to maintain/f
 - The user can change keybindings based on the frame's =fg-name= property (e.g. by using =fg-after-switch-hook=) and make use of frame-local variables
 - No "window too small for splitting" issues
 
-The primary issue with using frames for workgroups-like functionality is that emacs has no way of displaying only one frame at a time and hiding the others. This isn't an issue if you are willing to dedicate different desktops to different frames. On the other hand, frames aren't great if you want a lot of contexts/groups or would prefer to use keys bound in emacs for switching between them as opposed to always using global hotkeys (since ~select-frame-set-input-focus~ does not work across desktops). By default, this package addresses this issue by hiding the old frame when switching to a new one. That means that (when =fg-hide-on-switch= is non-nil) this package only supports Linux/X11. Furthermore, switching between frames can cause flicker especially if you are not using a compositor.
+* Requirements and Limitations
+The primary issue with using frames for workgroups-like functionality is that emacs (by itself) has no way of displaying only one frame at a time and hiding the others. This isn't an issue if you are willing to dedicate different desktops to different frames. On the other hand, frames aren't great if you want a lot of contexts/groups or would prefer to use keys bound in emacs for switching between them instead of always using global hotkeys (since ~select-frame-set-input-focus~ does not work across desktops).
 
-Because this method is not cross platform and kind of a hack, I will likely abandon this package if an alternative is ever created with workspace-local window history.
+By default, this package attempts address these issues issue by using =xdotool= to hide the old frame and switch to a new one. If [[https://github.com/ch11ng/xelb][xelb]] is able to easily map/unmap windows, I may switch to using it in the future.
 
-* Requirements
-This package requires =xdotool= to hide the old frame when switching to a new one. If [[https://github.com/ch11ng/xelb][xelb]] is able to easily map/unmap windows, I may switch to using it in the future.
+Note that this package will only attempt to use xdotool if the user is using X11, xdotool is installed, and the related settings (see below) are non-nil. Otherwise, it will not attempt to hide frames and will use emacs' builtin frame switching function.
+
+To clarify, if you are not using Linux/X11 or do not wish to use xdotool, most of this package's functionality is still available:
+- ~fg-rename-frame~ works
+- ~fg-create-frame~ works
+- ~fg-create-hook~ works
+- the mode line indicator works
+- ~fg-switch-to-frame~ and ~fg-switch-to-last-frame~ will likely not work /across desktops/ (you'll need to use global WM keys to switch between desktops); they should work for frames located on the same desktop
+- ~fg-after-switch-hook~ is only triggered from ~fg-switch-to-(last-)frame~ (you can use ~focus-in-hook~ instead if you want to dedicate different WM desktops to different frames)
+- ~fg-desktop-setup~ will not work
+
+In summary, reliable frame switching when using multiple desktops requires xdotool (basically a hack). Using xdotool to hide/switch windows can also cause flicker especially if you are not using a compositor. That said, if all your frames are on a single desktop, using xdotool is not necessary. You can instead have only one frame visible by using the monocle/fullscreen layout for that desktop.
 
 * Terminology
 The following sections use the term "framegroup" to refer to a frame that this package is managing (i.e. it was named/focused using this package's commands).
 
 * Settings/Hooks
-- =fg-hide-on-switch= (default t): whether to hide the old frame when switching to a new one
+- =fg-hide-with-xdotool= (default t): whether to hide the old frame when switching to a new one (only has an effect when using X11 and xdotool is installed)
+- =fg-switch-with-xdotool= (default t): whether to switch frames using xdotool instead of emacs' ~select-frame-set-input-focus~ (only has an effect when using X11 and xdotool is installed and =fg-hide-with-xdotool= is nil; when =fg-hide-with-xdotool= is non-nil, xdotool must be used to remap hidden windows)
 - =fg-auto-create= (default t): whether to automatically create a framegroup when attempting to switch to a non-existent one
 - =fg-create-hook=: hook run when a framegroup is first created (renaming also triggers this hook)
 - =fg-after-switch-hook=: hook run after switching framegroups; functions are run with the name of the new framegroup as an argument
@@ -45,7 +57,6 @@ Helper functions/macros:
 - ~fg-switch~: a convenience macro that returns a function that will switch to a framegroup (e.g. ~(define-key "key" (fg-switch "notes"))~)
 - ~fg-desktop-setup~: will add to =desktop-read-hook= to hide all but the last focused frame when restoring a session
 - ~fg-mode-line-string~: return the current framegroup name formatted for the mode line
-
 
 This package does not provide numbered workspaces or directional switching commands as I personally prefer to have named contexts. You could of course simply name your frames with numbers and create directional switching keybindings yourself with ~fg-switch~, but I do not plan to this functionality directly.
 
