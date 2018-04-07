@@ -34,7 +34,7 @@
 (defgroup framegroups nil
   "Provide commands for using frames as named workspaces."
   :group 'convenience
-  :prefix 'fg-)
+  :prefix "fg-")
 
 (defcustom fg-hide-with-xdotool t
   "Whether to hide the old frame when switching to a new one.
